@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL =process.env.SERVER_URL || "https://launchpilot-server.vercel.app/api" ;
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
