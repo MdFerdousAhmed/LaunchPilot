@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://launch-pilot-server.vercel.app/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export function getAuthToken(): string | null {
   if (typeof window !== "undefined") {
