@@ -5,10 +5,11 @@
       "runtime": "@vercel/node"
     }
   },
-  "routes": [
+  
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "src/server.ts"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ]
 }
