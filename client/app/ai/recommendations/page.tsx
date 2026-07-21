@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import DashboardLayout from '../../../components/DashboardLayout';
+import { useAuth } from '../../providers';
 import Link from 'next/link';
 import {
-  Rocket,
   Sparkles,
   Brain,
   ThumbsUp,
@@ -12,7 +13,6 @@ import {
   ChevronRight,
   Loader2,
   Target,
-  Search,
   Filter,
   Star,
   Zap,
@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { apiRequest } from '../../../utils/api';
 import { LISTING_CARDS } from '../../data/listings';
-import { useAuth } from '../../providers';
 
 interface Recommendation {
   moduleId: string;
@@ -68,8 +67,8 @@ export default function RecommendationsPage() {
   // Sync with MongoDB project context when loaded
   useEffect(() => {
     if (currentProject) {
-      setDescription(currentProject.description || '');
-      setIndustry(currentProject.industry || 'SaaS');
+      if (currentProject.description) setDescription(currentProject.description);
+      if (currentProject.industry) setIndustry(currentProject.industry);
     }
   }, [currentProject]);
 
@@ -90,7 +89,7 @@ export default function RecommendationsPage() {
   };
 
   const handleGenerate = async () => {
-    if (!description.trim()) return;
+    const descToUse = description.trim() || currentProject?.description || 'AI Powered SaaS Startup platform';
     setLoading(true);
     setHasGenerated(true);
     try {
@@ -105,7 +104,7 @@ export default function RecommendationsPage() {
       const res = await apiRequest<{ recommendations: Recommendation[] }>('/ai/recommendations', {
         method: 'POST',
         body: JSON.stringify({
-          startupDescription: description,
+          startupDescription: descToUse,
           industry,
           availableModules: moduleSummaries,
           feedbackHistory: feedback,
@@ -113,7 +112,7 @@ export default function RecommendationsPage() {
       });
       setRecommendations(res.recommendations);
     } catch (err) {
-      console.error(err);
+      console.error('Error generating recommendations:', err);
     } finally {
       setLoading(false);
     }
@@ -125,10 +124,6 @@ export default function RecommendationsPage() {
     saveFeedback(updated);
   };
 
-  const handleRefine = () => {
-    handleGenerate();
-  };
-
   const handleClearFeedback = () => {
     saveFeedback([]);
   };
@@ -138,12 +133,10 @@ export default function RecommendationsPage() {
     return item ? item.action : null;
   };
 
-  // Resolve module details from LISTING_CARDS
   const getModuleDetails = (moduleId: string) => {
     return LISTING_CARDS.find((m) => m.id === moduleId);
   };
 
-  // Filter recommendations
   const filteredRecs = recommendations.filter((rec) => {
     const mod = getModuleDetails(rec.moduleId);
     if (!mod) return true;
@@ -155,103 +148,69 @@ export default function RecommendationsPage() {
   const categories = ['All', ...new Set(LISTING_CARDS.map((m) => m.category))];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 overflow-x-hidden">
-      {/* ── NAVBAR ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Rocket className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-black bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent tracking-tight">
-              LaunchPilot
-            </span>
-          </Link>
-          <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
-            <Link href="/modules" className="hover:text-white transition-colors">Explore</Link>
-            <Link href="/ai/content" className="hover:text-white transition-colors">AI Content</Link>
-            <Link href="/about" className="hover:text-white transition-colors">About</Link>
-            <Link href="/login" className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-xs font-semibold transition-all">
-              Sign In
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* ── HERO ─────────────────────────────────────────── */}
-      <section className="relative pt-16 pb-10 px-4 sm:px-6 lg:px-8 text-center overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[280px] bg-purple-600/10 rounded-full blur-[100px]" />
-        </div>
-        <div className="relative max-w-2xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">
-            <Brain className="w-3.5 h-3.5" /> AI Recommendation Engine
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white flex items-center gap-2">
+              <Brain className="w-6 h-6 text-purple-400 animate-pulse" /> AI Recommendation Engine
+            </h1>
+            <p className="text-zinc-400 text-xs md:text-sm mt-1">
+              Personalized LaunchPilot module recommendations for <strong>{currentProject?.name || 'your startup'}</strong> based on Gemini AI analysis.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
-            Modules{' '}
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              tailored to you
-            </span>
-          </h1>
-          <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mx-auto">
-            Describe your startup and let our AI analyze your needs to recommend the most impactful
-            LaunchPilot modules \u2014 ranked by confidence and priority.
-          </p>
         </div>
-      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 space-y-8">
-        {/* ── INPUT SECTION ──────────────────────────────── */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-5">
+        {/* Input Form Card */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Target className="w-4 h-4 text-purple-400" /> Describe Your Startup
+                <Target className="w-4 h-4 text-purple-400" /> Startup Context
               </h2>
-              <p className="text-[10px] text-zinc-500">Provide a description and industry so the AI can match you with the right modules.</p>
+              <p className="text-[11px] text-zinc-500">Provide details or use your active project profile.</p>
             </div>
             {currentProject && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-semibold self-start sm:self-center">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Synced with MongoDB: <span className="text-white">{currentProject.name}</span>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Synced: <span className="text-white">{currentProject.name}</span>
               </div>
             )}
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-400">Startup Description *</label>
+              <label className="text-xs font-semibold text-zinc-400">Startup Description</label>
               <textarea
-                rows={4}
-                placeholder="e.g., We are building an AI-powered fitness coaching app that creates personalized workout plans based on user biometrics and goals..."
+                rows={3}
+                placeholder="Describe your startup solution, target market, and goals..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-zinc-800/60 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/50 transition-all resize-none"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all resize-none"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-400">Industry *</label>
+              <label className="text-xs font-semibold text-zinc-400">Industry</label>
               <select
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                className="w-full bg-zinc-800/60 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
               >
                 {INDUSTRIES.map((ind) => (
                   <option key={ind} value={ind}>{ind}</option>
                 ))}
               </select>
 
-              {/* Feedback indicator */}
               {feedback.length > 0 && (
                 <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Feedback History</span>
-                    <button onClick={handleClearFeedback} className="text-[9px] text-zinc-500 hover:text-zinc-300 transition-colors">Clear</button>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Feedback Memory</span>
+                    <button onClick={handleClearFeedback} className="text-[9px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">Clear</button>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-zinc-400">
-                    <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3 text-emerald-400" /> {feedback.filter(f => f.action === 'accepted').length}</span>
-                    <span className="flex items-center gap-1"><ThumbsDown className="w-3 h-3 text-rose-400" /> {feedback.filter(f => f.action === 'rejected').length}</span>
+                  <div className="flex items-center gap-3 text-[10px] text-zinc-400">
+                    <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3 text-emerald-400" /> {feedback.filter(f => f.action === 'accepted').length} Accepted</span>
+                    <span className="flex items-center gap-1"><ThumbsDown className="w-3 h-3 text-rose-400" /> {feedback.filter(f => f.action === 'rejected').length} Rejected</span>
                   </div>
-                  <p className="text-[9px] text-zinc-500">AI uses your feedback to refine future picks.</p>
                 </div>
               )}
             </div>
@@ -260,45 +219,45 @@ export default function RecommendationsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleGenerate}
-              disabled={loading || !description.trim()}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-bold py-3 px-6 rounded-xl shadow-lg transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-bold py-3 px-6 rounded-xl shadow-lg transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing Context...</>
               ) : (
                 <><Brain className="w-4 h-4" /> Get AI Recommendations</>
               )}
             </button>
             {hasGenerated && !loading && (
               <button
-                onClick={handleRefine}
-                className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-sm font-semibold py-3 px-5 rounded-xl transition-all"
+                onClick={handleGenerate}
+                className="flex items-center justify-center gap-2 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 text-sm font-semibold py-3 px-5 rounded-xl transition-all cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4" /> Refine with Feedback
+                <RefreshCw className="w-4 h-4" /> Refine Recommendations
               </button>
             )}
           </div>
         </div>
 
-        {/* ── RESULTS SECTION ────────────────────────────── */}
+        {/* Loading Indicator */}
         {loading && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 flex flex-col items-center justify-center space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
               <Brain className="w-8 h-8 text-purple-400 animate-pulse" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-bold text-white">Analyzing your startup...</p>
-              <p className="text-[10px] text-zinc-500 mt-1">Matching against {LISTING_CARDS.length} platform modules</p>
+              <p className="text-sm font-bold text-white">Analyzing startup requirements...</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Matching against platform modules</p>
             </div>
-            <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="w-48 h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-850">
               <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-pulse w-2/3" />
             </div>
           </div>
         )}
 
+        {/* Results */}
         {!loading && hasGenerated && recommendations.length > 0 && (
           <>
-            {/* Filter bar */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-400" />
@@ -310,10 +269,10 @@ export default function RecommendationsPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 hover:border-zinc-600 rounded-xl text-xs font-semibold text-zinc-400 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-400 transition-all cursor-pointer"
               >
-                <Filter className="w-3 h-3" /> Filters
-                <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                <Filter className="w-3.5 h-3.5" /> Filters
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
             </div>
 
@@ -326,10 +285,10 @@ export default function RecommendationsPage() {
                       <button
                         key={cat}
                         onClick={() => setFilterCategory(cat)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
                           filterCategory === cat
                             ? 'bg-indigo-600 text-white'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700'
+                            : 'bg-zinc-950 text-zinc-400 hover:text-white border border-zinc-800'
                         }`}
                       >
                         {cat}
@@ -337,28 +296,10 @@ export default function RecommendationsPage() {
                     ))}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Price</label>
-                  <div className="flex gap-1.5">
-                    {['All', 'Free', 'Premium'].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setFilterPrice(p)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                          filterPrice === p
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 {(filterCategory !== 'All' || filterPrice !== 'All') && (
                   <button
                     onClick={() => { setFilterCategory('All'); setFilterPrice('All'); }}
-                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
                   >
                     <X className="w-3 h-3" /> Clear Filters
                   </button>
@@ -366,7 +307,6 @@ export default function RecommendationsPage() {
               </div>
             )}
 
-            {/* Recommendation cards */}
             <div className="space-y-4">
               {filteredRecs.map((rec, idx) => {
                 const mod = getModuleDetails(rec.moduleId);
@@ -378,7 +318,7 @@ export default function RecommendationsPage() {
                 return (
                   <div
                     key={rec.moduleId}
-                    className={`bg-zinc-900 border rounded-2xl p-5 sm:p-6 transition-all hover:shadow-xl hover:shadow-zinc-950/50 ${
+                    className={`bg-zinc-900 border rounded-2xl p-5 sm:p-6 transition-all ${
                       fb === 'accepted'
                         ? 'border-emerald-500/30'
                         : fb === 'rejected'
@@ -387,9 +327,8 @@ export default function RecommendationsPage() {
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row gap-4 sm:items-start">
-                      {/* Rank + Icon */}
                       <div className="flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 shrink-0">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-black text-zinc-400">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-850 flex items-center justify-center text-xs font-black text-zinc-400">
                           #{idx + 1}
                         </div>
                         {mod && (
@@ -399,7 +338,6 @@ export default function RecommendationsPage() {
                         )}
                       </div>
 
-                      {/* Content */}
                       <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-sm font-bold text-white">{rec.title}</h3>
@@ -407,24 +345,16 @@ export default function RecommendationsPage() {
                             {rec.priority}
                           </span>
                           {mod && (
-                            <span className="px-2 py-0.5 bg-zinc-800 border border-zinc-700 rounded-full text-[9px] font-medium text-zinc-400 uppercase tracking-wider">
+                            <span className="px-2 py-0.5 bg-zinc-950 border border-zinc-800 rounded-full text-[9px] font-medium text-zinc-400 uppercase tracking-wider">
                               {mod.category}
-                            </span>
-                          )}
-                          {mod && (
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                              mod.price === 'Free' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
-                            }`}>
-                              {mod.price}
                             </span>
                           )}
                         </div>
 
                         <p className="text-xs text-zinc-400 leading-relaxed">{rec.reason}</p>
 
-                        {/* Confidence bar */}
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 max-w-[200px] h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="flex-1 max-w-[200px] h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-850">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
                                 confidencePct >= 85 ? 'bg-emerald-500' : confidencePct >= 70 ? 'bg-blue-500' : 'bg-amber-500'
@@ -441,34 +371,33 @@ export default function RecommendationsPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="flex sm:flex-col gap-2 shrink-0">
                         <button
                           onClick={() => handleFeedback(rec.moduleId, 'accepted')}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
                             fb === 'accepted'
                               ? 'bg-emerald-600 text-white'
-                              : 'bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-400 border border-zinc-700'
+                              : 'bg-zinc-950 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-400 border border-zinc-800'
                           }`}
                         >
                           <ThumbsUp className="w-3 h-3" /> {fb === 'accepted' ? 'Accepted' : 'Accept'}
                         </button>
                         <button
                           onClick={() => handleFeedback(rec.moduleId, 'rejected')}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
                             fb === 'rejected'
                               ? 'bg-rose-600 text-white'
-                              : 'bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-zinc-700'
+                              : 'bg-zinc-950 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-zinc-800'
                           }`}
                         >
                           <ThumbsDown className="w-3 h-3" /> {fb === 'rejected' ? 'Rejected' : 'Reject'}
                         </button>
                         {mod && (
                           <Link
-                            href={`/modules/${rec.moduleId}`}
+                            href={mod.href}
                             className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-[10px] font-semibold transition-all text-center justify-center"
                           >
-                            View <ChevronRight className="w-3 h-3" />
+                            Launch <ChevronRight className="w-3 h-3" />
                           </Link>
                         )}
                       </div>
@@ -477,14 +406,6 @@ export default function RecommendationsPage() {
                 );
               })}
             </div>
-
-            {filteredRecs.length === 0 && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center space-y-3">
-                <Filter className="w-8 h-8 text-zinc-600 mx-auto" />
-                <p className="text-sm font-bold text-white">No recommendations match your filters</p>
-                <p className="text-xs text-zinc-400">Try adjusting the category or price filter.</p>
-              </div>
-            )}
           </>
         )}
 
@@ -492,41 +413,10 @@ export default function RecommendationsPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center space-y-3">
             <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
             <p className="text-sm font-bold text-white">Could not generate recommendations</p>
-            <p className="text-xs text-zinc-400">Please check your server connection and try again.</p>
+            <p className="text-xs text-zinc-400">Please check your network connection and try again.</p>
           </div>
         )}
-
-        {/* ── CTA ──────────────────────────────────────────── */}
-        <div className="relative bg-gradient-to-br from-purple-600/15 via-indigo-600/10 to-blue-600/15 border border-purple-500/20 rounded-2xl p-8 text-center overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[150px] bg-purple-600/10 rounded-full blur-[80px]" />
-          </div>
-          <div className="relative space-y-3">
-            <h2 className="text-xl font-extrabold text-white">Need content for your launch?</h2>
-            <p className="text-zinc-400 text-xs max-w-md mx-auto">
-              Our AI Content Generator creates blog posts, product copy, social media content, and technical docs in seconds.
-            </p>
-            <Link
-              href="/ai/content"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
-            >
-              Generate Content <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
       </div>
-
-      {/* ── FOOTER ──────────────────────────────────────────── */}
-      <footer className="border-t border-zinc-900 bg-zinc-950 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-zinc-600">&copy; 2026 LaunchPilot. All rights reserved.</p>
-          <div className="flex gap-4 text-xs text-zinc-600">
-            <Link href="/about" className="hover:text-zinc-400 transition-colors">About</Link>
-            <Link href="/blog" className="hover:text-zinc-400 transition-colors">Blog</Link>
-            <Link href="/contact" className="hover:text-zinc-400 transition-colors">Contact</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </DashboardLayout>
   );
 }

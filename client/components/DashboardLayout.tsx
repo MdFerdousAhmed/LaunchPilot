@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Sparkles,
+  FileText,
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -30,6 +31,8 @@ const navigation: SidebarItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Launch Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'AI Copilot', href: '/copilot', icon: MessageSquareCode },
+  { name: 'AI Content', href: '/ai/content', icon: FileText },
+  { name: 'AI Recommendations', href: '/ai/recommendations', icon: Sparkles },
   { name: 'Competitors', href: '/competitor', icon: TrendingUp },
   { name: 'Landing Page', href: '/landing-page', icon: Globe },
   { name: 'Pitch Deck', href: '/pitch-deck', icon: Presentation },

@@ -27,6 +27,24 @@ async function generateText(prompt: string, mockFallback: string): Promise<strin
   }
 }
 
+// Helper to extract JSON safely from Gemini response text
+function extractJson<T>(rawText: string, fallback: T): T {
+  try {
+    const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      const match = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+      return fallback;
+    }
+  } catch (err) {
+    return fallback;
+  }
+}
+
 // 1. Generate Launch Tasks (returns JSON format of tasks)
 export async function generateTasksForProject(
   projectName: string,
@@ -473,10 +491,10 @@ export async function generateRecommendations(
   availableModules: Array<{ id: string; title: string; desc: string; category: string; price: string }>,
   feedbackHistory: Array<{ moduleId: string; action: 'accepted' | 'rejected' }>
 ): Promise<Array<{ moduleId: string; title: string; reason: string; confidence: number; priority: string }>> {
-  const moduleList = availableModules.map((m) => `- ${m.id}: "${m.title}" (${m.category}, ${m.price}) - ${m.desc}`).join('\\n');
+  const moduleList = availableModules.map((m) => `- ${m.id}: "${m.title}" (${m.category}, ${m.price}) - ${m.desc}`).join('\n');
 
   const feedbackStr = feedbackHistory.length > 0
-    ? `User feedback from previous recommendations:\\n${feedbackHistory.map((f) => `- ${f.moduleId}: ${f.action}`).join('\\n')}`
+    ? `User feedback from previous recommendations:\n${feedbackHistory.map((f) => `- ${f.moduleId}: ${f.action}`).join('\n')}`
     : 'No previous feedback available.';
 
   const prompt = `You are a startup advisor and product recommendation engine for LaunchPilot, a platform that helps founders launch products.
@@ -540,13 +558,13 @@ Return ONLY a valid JSON array (no markdown). Each object must have:
   // Apply feedback filtering to mock
   const rejected = new Set(feedbackHistory.filter((f) => f.action === 'rejected').map((f) => f.moduleId));
   const filteredMock = mockRecommendations.filter((r) => !rejected.has(r.moduleId));
+  const fallback = filteredMock.length > 0 ? filteredMock : mockRecommendations;
 
   try {
-    const rawResult = await generateText(prompt, JSON.stringify(filteredMock.length > 0 ? filteredMock : mockRecommendations));
-    const cleaned = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleaned);
+    const rawResult = await generateText(prompt, JSON.stringify(fallback));
+    return extractJson(rawResult, fallback);
   } catch (err) {
     console.warn('Failed to parse recommendations. Falling back to mock.');
-    return filteredMock.length > 0 ? filteredMock : mockRecommendations;
+    return fallback;
   }
 }
