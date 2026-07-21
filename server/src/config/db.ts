@@ -1,12 +1,34 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-export const connectDB = async () => {
+export const connectDB = async (): Promise<void> => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/launchpilot');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    const mongoURI = process.env.MONGODB_URI;
+
+    if (!mongoURI) {
+      throw new Error("MONGODB_URI is not defined in environment variables.");
+    }
+
+    // Prevent multiple connections during development
+    if (mongoose.connection.readyState === 1) {
+      console.log("✅ MongoDB already connected");
+      return;
+    }
+
+    const conn = await mongoose.connect(mongoURI, {
+      serverSelectionTimeoutMS: 10000,
+    });
+
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`Error connecting to MongoDB: ${error instanceof Error ? error.message : error}`);
-    // Do not crash the process in development if MongoDB is not running, just alert.
-    console.warn('Backend is running, but MongoDB connection failed. AI services will use mock responses where database persistence fails.');
+    console.error("❌ MongoDB Connection Error:");
+
+    if (error instanceof Error) {
+      console.error(error.message);
+    } else {
+      console.error(error);
+    }
+
+    // Stop the server if database connection fails
+    process.exit(1);
   }
 };
